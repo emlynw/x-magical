@@ -90,7 +90,7 @@ class SweepToTopEnv(BaseEnv):
                 size=self.num_debris,
                 replace=False,
             )
-        debris_shapes = [DEFAULT_BLOCK_SHAPE] * self.num_debris
+        debris_shapes = [en.ShapeType.SQUARE, en.ShapeType.CIRCLE, en.ShapeType.STAR]
         debris_colors = [DEFAULT_BLOCK_COLOR] * self.num_debris
         if self.rand_shapes:
             debris_shapes = self.rng.choice(
@@ -181,7 +181,28 @@ class SweepToTopEnv(BaseEnv):
         # `score_on_end_of_traj` is supposed to be called at the end of a
         # trajectory but we use it here since it gives us exactly the reward
         # we're looking for.
-        return self.score_on_end_of_traj()
+        return self.ordered_reward()
+    
+    def ordered_reward(self) -> float:
+        # score = number of debris entirely contained in goal zone / 3
+        overlap_ents_names = set()
+        overlap_ents = self.__sensor_ref.get_overlapping_ents(contained=True, ent_index=self.__ent_index)
+        for i in overlap_ents:
+            overlap_ents_names.add(i.shape_type.value)
+
+        if len(overlap_ents) == 0:
+            score = 0.0
+        elif len(overlap_ents_names) == 1 and "star" in overlap_ents_names:
+            score = 1/3
+        elif len(overlap_ents_names) == 2 and "star" in overlap_ents_names and "circle" not in overlap_ents_names:
+            score = 1/3
+        elif len(overlap_ents_names) == 2 and "star" in overlap_ents_names and "circle" in overlap_ents_names:
+            score = 2/3
+        elif len(overlap_ents_names) == 3:
+            score = 1.0
+        else:
+            score = 0.0
+        return score
 
     def get_reward(self) -> float:
         if self.use_dense_reward:
